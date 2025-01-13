@@ -1,0 +1,49 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    environment:
+      - SERVICES=s3
+      - AWS_DEFAULT_REGION=us-east-1
+      - GATEWAY_LISTEN=0.0.0.0:4566      
+    ports:
+      - "4566:4566"
+      - "4571:4571"
+    volumes:
+      - "./localstack-data:/var/lib/localstack" # Mapeamento para armazenamento persistente
+      - "./init:/etc/localstack/init/ready.d/"
+      - "./files:/files"
+      - /var/run/docker.sock:/var/run/docker.sock 
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 2s
+      timeout: 10s
+      retries: 5
+      start_period: 3s
+    networks:
+      - app-network
+
+  s3-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sqs-ui:latest
+    container_name: sqs-ui
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT=http://localstack:4566 
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test    
+    ports:
+      - "3000:3000"
+    depends_on:
+      localstack:
+        condition: service_healthy    
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+

@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Admin UI</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- Estilos Personalizados -->
+    <style>
+         /* Estilo para Links e Ícones */
+    .file-link, .folder-link {
+        text-decoration: none;
+        color: #0073e6;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .file-link:hover, .folder-link:hover {
+        text-decoration: underline;
+    }
+
+    .icon {
+        font-size: 1rem;
+    }
+
+    .icon-folder {
+        color: #ffcc00;
+    }
+
+    .icon-file {
+        color: #17a2b8;
+    }
+        /* Barra de Navegação */
+        .navbar {
+            background-color: #343a40;
+        }
+        .navbar-brand {
+            color: white;
+        }
+
+        /* Estilos Gerais */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        /* Tabelas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            list-style: none;
+            display: flex;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+        }
+        .breadcrumb li {
+            display: flex;
+            align-items: center;
+        }
+        .breadcrumb li + li::before {
+            content: "/";
+            padding: 0 8px;
+            color: #6c757d;
+        }
+        .breadcrumb a {
+            text-decoration: none;
+            color: #007bff;
+            cursor: pointer;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .breadcrumb .active {
+            color: #6c757d;
+            cursor: default;
+        }
+
+        /* Seções de Conteúdo */
+        .content-section {
+            display: none;
+            padding: 20px;
+        }
+        .content-section.active {
+            display: block;
+        }
+
+        /* Alertas */
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px; /* Largura fixa para manter o layout consistente */
+            z-index: 1050;
+        }
+
+        .alert {
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* Adiciona sombra para destacar o alerta */
+            margin-bottom: 10px; /* Espaço entre alertas */
+            font-size: 0.95rem; /* Fonte ajustada para melhor legibilidade */
+        }
+    </style>
+</head>
+<body>
+    <!-- Barra de Navegação -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <a class="navbar-brand mx-auto" href="#">S3 Admin UI</a>
+    </nav>
+    
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ul class="breadcrumb" id="breadcrumb">
+            <!-- Breadcrumbs serão inseridos dinamicamente aqui -->
+        </ul>
+    </nav>
+
+    <div class="container mt-5">
+        <!-- Contêiner de Alertas -->
+        <div id="alertContainer" class="alert-container"></div>
+        
+        <!-- Lista de Buckets -->
+        <section id="view-bucket-list" class="content-section active">
+            <div class="mb-4">
+                <input type="text" id="search" class="form-control w-50" placeholder="Buscar buckets por nome..." onkeyup="filterBuckets()" />
+            </div>   
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Lista de Buckets</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBucketModal">Criar Bucket</button>
+            </div>
+           
+            <table id="bucketTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Data de Criação</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Buckets serão adicionados dinamicamente aqui -->
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Modal para Criação de Bucket -->
+        <div class="modal fade" id="createBucketModal" tabindex="-1" aria-labelledby="createBucketModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="createBucketForm" onsubmit="handleCreateBucket(event)">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="createBucketModalLabel">Criar Novo Bucket</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="bucketNameInput" class="form-label">Nome do Bucket</label>
+                                <input type="text" id="bucketNameInput" class="form-control" placeholder="Digite o nome do bucket" required />
+                                <div id="bucketNameError" class="text-danger mt-1"></div> 
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Criar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+
+        <!-- Detalhes do Bucket -->
+        <section id="view-bucket-details" class="content-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 id="bucketName-detail"></h3>
+                <div>
+                    <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#createFolderModal" >Criar Pasta</button>
+                    <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#uploadFileModal">Upload de Arquivo</button>
+                </div>
+            </div>
+
+            <table id="objectTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Tipo</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Objetos serão adicionados dinamicamente aqui -->
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Modal para Upload de Arquivo -->
+        <div class="modal fade" id="uploadFileModal" tabindex="-1" aria-labelledby="uploadFileModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="uploadFileForm" onsubmit="handleUploadFile(event)">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="uploadFileModalLabel">Upload de Arquivo</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="fileInput" class="form-label">Selecionar Arquivo</label>
+                                <input type="file" class="form-control" id="fileInput" required>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            <button type="submit" class="btn btn-primary">Upload</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal para Criação de Pasta -->
+        <div class="modal fade" id="createFolderModal" tabindex="-1" aria-labelledby="createFolderModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="createFolderForm" onsubmit="handleCreateFolder(event)">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="createFolderModalLabel">Criar Pasta</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="folderNameInput" class="form-label">Nome da Pasta</label>
+                                <input type="text" class="form-control" id="folderNameInput" placeholder="Digite o nome da pasta" required>
+                                <div id="bucketNameError" class="text-danger mt-1"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            <button type="submit" class="btn btn-primary">Criar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- JavaScript Personalizado -->
+    <script>
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Estado da Aplicação
+        let currentPath = []; // Representa o caminho atual, ex: ['pasta1', 'pasta2']
+        let directoryTree = null; // Armazena a árvore hierárquica completa
+        let currentBucket = null; // Nome do bucket atualmente selecionado
+
+       /**
+         * Salva o estado atual no localStorage.
+         */
+        function saveState() {
+            const state = {
+                bucket: currentBucket,
+                path: currentPath,
+            };
+            localStorage.setItem('s3AppState', JSON.stringify(state));
+        }
+
+        /**
+         * Recupera o estado do localStorage.
+         */
+        function loadState() {
+            const savedState = localStorage.getItem('s3AppState');
+            if (savedState) {
+                const { bucket, path } = JSON.parse(savedState);
+                currentBucket = bucket;
+                currentPath = path || [];
+            }
+        }
+
+        /**
+         * Função de inicialização da aplicação.
+         */
+      async  function initializeApp() {
+            loadState(); // Recupera o estado salvo 
+            if (currentBucket) {
+
+                if (currentPath.length > 0) {
+                    const prefix = currentPath.join('/');
+                    document.getElementById('bucketName-detail').textContent = prefix;
+                    document.getElementById('view-bucket-list').style.display =  'none';
+                    document.getElementById('view-bucket-details').style.display =  'block';
+                    await fetchObjects(currentBucket, prefix);
+                }else{
+                    // Se houver um bucket salvo, navegue para ele
+                    await viewBucketDetails(encodeURIComponent(currentBucket));
+                }
+
+            } else {
+                // Caso contrário, carregue a lista de buckets
+               await loadBuckets();
+            } 
+            setupModalReset();
+            updateBreadcrumb();
+        }
+
+       /**
+         * Configura eventos para limpar campos de entrada e estados ao abrir modais.
+         */
+        function setupModalReset() {
+            const modalResetConfigs = [
+                {
+                    modalSelector: '#createBucketModal',
+                    fieldsToReset: ['#bucketNameInput'],
+                    errorSelectors: ['#bucketNameError'],
+                },
+                {
+                    modalSelector: '#createFolderModal',
+                    fieldsToReset: ['#folderNameInput'],
+                },
+                {
+                    modalSelector: '#uploadFileModal',
+                    fieldsToReset: ['#fileInput'],
+                },
+            ];
+
+            modalResetConfigs.forEach(({ modalSelector, fieldsToReset, errorSelectors }) => {
+                const modalTrigger = document.querySelector(`[data-bs-target="${modalSelector}"]`);
+                if (modalTrigger) {
+                    modalTrigger.addEventListener('click', () => {
+                        resetFields(fieldsToReset, errorSelectors);
+                    });
+                }
+            });
+        }
+
+        /**
+         * Reseta campos de entrada e mensagens de erro.
+         * @param {string[]} fieldsToReset - Seletores CSS dos campos de entrada para limpar.
+         * @param {string[]} [errorSelectors] - Seletores CSS dos elementos de erro para limpar (opcional).
+         */
+        function resetFields(fieldsToReset, errorSelectors = []) {
+            fieldsToReset.forEach(selector => {
+                const input = document.querySelector(selector);
+                if (input) {
+                    input.value = '';
+                    input.classList.remove('is-invalid');
+                }
+            });
+
+            errorSelectors.forEach(selector => {
+                const errorElement = document.querySelector(selector);
+                if (errorElement) {
+                    errorElement.textContent = '';
+                    errorElement.style.display = 'none';
+                }
+            });
+        }
+
+        /**
+         * Atualiza o breadcrumb de navegação
+         */
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            breadcrumb.innerHTML = ''; // Limpa o breadcrumb existente
+
+            const breadcrumbItems = [
+                { label: 'Buckets', target: 'view-bucket-list', isActive: false }
+            ];
+
+            if (currentBucket) {
+
+                breadcrumbItems.push({
+                        label: currentBucket,
+                        target: 'view-bucket-details',
+                        isActive: currentPath.length === 0
+                });                              
+               
+                currentPath.forEach((folder, index) => {
+                    const isLast = index === currentPath.length - 1;
+                    breadcrumbItems.push({
+                        label: folder,
+                        target: null, // Define como null para pastas
+                        isActive: isLast
+                    });
+                });                      
+                
+            }else{
+                const activeSection = document.querySelector('.content-section.active');
+                if ( activeSection && activeSection.id === 'view-bucket-create') {
+                    breadcrumbItems.push({
+                        label: 'Criar Bucket',
+                        target: null,
+                        isActive: true
+                    });
+                }
+            }            
+
+            breadcrumbItems.forEach((item, index) => {
+                const li = document.createElement('li');
+
+                if (item.isActive) {
+                    li.classList.add('active');
+                    li.textContent = item.label;
+                } else {
+                    const a = document.createElement('a');
+                    a.href = "#";
+                    a.textContent = item.label;
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        handleBreadcrumbNavigation(index);
+                    });
+                    li.appendChild(a);
+                }
+
+                breadcrumb.appendChild(li);
+            });
+        }
+
+        /**
+         * Lida com a navegação ao clicar no breadcrumb
+         * @param {number} index - Índice do item clicado no breadcrumb
+         */
+         async  function handleBreadcrumbNavigation(index) {
+            if (index === 0) { // Clicou em "Buckets"
+                navigateTo('view-bucket-list',index);
+            } else if (index === 1) { // Clicou no nome do Bucket
+                navigateTo('view-bucket-details',index);
+            } else { // Clicou em uma subpasta
+                // Define o currentPath até o índice clicado (index - 1, pois index 0 é "Buckets" e 1 é o Bucket)
+                currentPath = currentPath.slice(0, index - 1);                            
+                navigateTo('view-bucket-details',index);
+                //await  fetchObjects(currentBucket, getCurrentPrefix());
+            }
+
+            saveState(); // Salva o estado atual    
+        }
+
+        /**
+         * Navega para uma seção específica
+         * @param {string} targetId - ID da seção para navegar
+         */
+      async  function navigateTo(targetId,index) {
+            // Ocultar todas as seções
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
+
+            // Exibir a seção alvo
+            const targetSection = document.getElementById(targetId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+                targetSection.style.display = 'block';
+            }
+
+            // Lógica específica para cada seção
+            switch(targetId) {
+                case 'view-bucket-details':
+                    if(index<=1){
+                        currentPath = [];
+                        document.getElementById('bucketName-detail').textContent = currentBucket;
+                    }else{
+                        document.getElementById('bucketName-detail').textContent = getCurrentPrefix().replace(/\//g, '');
+                    }                   
+                     
+                    updateBreadcrumb();                
+                    await  fetchObjects(currentBucket, getCurrentPrefix());
+                    
+                    //displayCurrentChildren();
+                    break;
+                case 'view-bucket-create':
+                    updateBreadcrumb();
+                    break;
+                case 'view-bucket-list':
+                    currentBucket = null;
+                    currentPath = [];
+                    loadBuckets();
+                    updateBreadcrumb();
+                    break;
+            }
+        }
+
+        /**
+         * Carrega a lista de buckets via API
+         */
+       async function loadBuckets() {
+            currentBucket = null;
+            currentPath = [];
+            updateBreadcrumb();
+
+            const tbody = document.querySelector('#bucketTable tbody');
+            tbody.innerHTML = '';
+            fetch('/buckets')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showAlert(data.error, 'danger');
+                        return;
+                    }
+
+                    data.buckets.forEach(bucket => {
+                        const row = document.createElement('tr');
+                        const creationDate = new Date(bucket.creationDate).toLocaleString();
+                        row.innerHTML = `
+                            <td>
+                                <a href="#" onclick="viewBucketDetails('${encodeURIComponent(bucket.name)}')">
+                                    <i class="fas fa-database icon-bucket"></i> ${bucket.name}
+                                </a>
+                            </td>
+                            <td>${creationDate}</td>
+                            <td><button class="btn btn-danger btn-sm" onclick="handleDeleteBucket('${encodeURIComponent(bucket.name)}')">Deletar</button></td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    showAlert('Erro ao listar buckets!', 'danger');
+                });
+        }
+
+        /**
+         * Filtra os buckets com base no valor de busca
+         */
+        function filterBuckets() {
+            const searchValue = document.getElementById('search').value.toLowerCase();
+            const rows = document.querySelectorAll('#bucketTable tbody tr');
+            rows.forEach(row => {
+                const bucketName = row.querySelector('td a').textContent.toLowerCase();
+                row.style.display = bucketName.includes(searchValue) ? '' : 'none';
+            });
+        }
+
+        /**
+         * Exibe os detalhes de um bucket específico
+         * @param {string} encodedBucketName - Nome codificado do bucket
+         */
+         async function viewBucketDetails(encodedBucketName) {
+            currentBucket = decodeURIComponent(encodedBucketName);
+            currentPath = [];
+            saveState(); // Salva o estado atual
+            await navigateTo('view-bucket-details');
+            document.getElementById('bucketName-detail').textContent = currentBucket;
+
+           await fetchObjects(currentBucket, '');
+            // Atualiza a interface com os objetos do diretório atual
+            displayCurrentChildren();
+        }
+
+        /**
+         * Busca os objetos dentro de um bucket
+         * @param {string} bucketName - Nome do bucket
+         * @param {string} prefix - Prefixo para filtrar objetos
+         */
+        async  function fetchObjects(bucketName, prefix) {
+            const encodedPrefix = encodeURIComponent(prefix);
+            const objectTableBody = document.querySelector('#objectTable tbody');
+            objectTableBody.innerHTML = '';
+            
+            // Indicador de carregamento
+            showLoading('#objectTable tbody');
+
+            try {
+                const response = await fetch(`/bucket/${encodeURIComponent(bucketName)}/objects?prefix=${encodedPrefix}`);
+                const data = await response.json();
+                
+                hideLoading('#objectTable tbody'); // Remove o indicador de carregamento
+                
+                if (data.error) {
+                    showAlert(data.error, 'danger');
+                    return;
+                }
+
+                // Atualiza a árvore hierárquica
+                directoryTree = buildDirectoryTree(data.children);
+                
+                 // Atualiza a interface com os objetos do diretório atual
+                 displayCurrentChildren();
+
+            } catch (err) {
+                hideLoading('#objectTable tbody'); // Remove o indicador de carregamento
+                console.error(err);
+                showAlert('Erro ao listar objetos do bucket!', 'danger');
+            }
+
+        }
+
+        /**
+         * Exibe os filhos do diretório atual na tabela de objetos
+         */
+        function displayCurrentChildren() {
+            const objectTableBody = document.querySelector('#objectTable tbody');
+            objectTableBody.innerHTML = '';
+
+            let currentNode = directoryTree;           
+
+            if (!currentNode || currentNode.children.length === 0) {
+                // Cria uma linha informando "Sem registro"
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="3" class="text-center text-muted">Sem registro</td>
+                `;
+                objectTableBody.appendChild(row);
+                updateBreadcrumb();
+                return;
+            }
+
+            currentNode.children.forEach(child => {
+                const nameWithSlash = child.isFile ? child.name : `${child.name}/`;
+                const row = document.createElement('tr');
+                const icon = child.isFile 
+                    ? '<i class="fas fa-file"></i>' // Ícone de arquivo
+                    : '<i class="fas fa-folder"></i>'; // Ícone de pasta
+                row.innerHTML = `
+                    <td>
+                        <a href="#" 
+                        class="${child.isFile ? 'file-link' : 'folder-link'}" 
+                        title="${nameWithSlash}" 
+                        onclick="${child.isFile ? `handleDownloadObject('${encodeURIComponent(child.name)}')` : `navigateInto('${child.name}')`}">
+                        <i class="fas ${child.isFile ? 'fa-file icon-file' : 'fa-folder icon-folder'}"></i> ${nameWithSlash}
+                        </a>
+                    </td>
+                    <td>${child.isFile ? 'Arquivo' : 'Directory'}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="handleDeleteObject('${encodeURIComponent(child.name)}')">Deletar</button></td>
+                `;
+
+                objectTableBody.appendChild(row);
+            });
+
+            updateBreadcrumb();
+        }
+
+        /**
+         * Exibe um indicador de carregamento na tabela de objetos
+         * @param {string} selector - Seletor CSS do elemento
+         */
+        function showLoading(selector) {
+            const element = document.querySelector(selector);
+            element.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        /**
+         * Remove o indicador de carregamento da tabela de objetos
+         * @param {string} selector - Seletor CSS do elemento
+         */
+        function hideLoading(selector) {
+            const element = document.querySelector(selector);
+            element.innerHTML = '';
+        }
+
+        /**
+         * Retorna o prefixo atual com base no caminho
+         * @returns {string} - Prefixo atual
+         */
+        function getCurrentPrefix() {
+            return currentPath.length > 0 ? currentPath.join('/') + '/' : '';
+        }
+
+        /**
+         * Navega para uma subpasta
+         * @param {string} folderName - Nome da subpasta
+         */
+         async function navigateInto(folderName) {
+            currentPath.push(folderName);
+            document.getElementById('bucketName-detail').textContent = folderName;
+            saveState(); // Salva o estado atual
+            await fetchObjects(currentBucket, getCurrentPrefix());
+            //displayCurrentChildren();
+        }
+
+        /**
+         * Navega para uma pasta específica via breadcrumb
+         * @param {string} folderName - Nome da pasta
+         */
+         async  function navigateToFolder(folderName) {
+            const index = currentPath.indexOf(folderName);
+            if (index !== -1) {
+                currentPath = currentPath.slice(0, index + 1);
+                await fetchObjects(currentBucket,folderName);
+                //displayCurrentChildren();
+            }
+        }
+
+        /**
+         * Lida com a deleção de um bucket
+         * @param {string} encodedBucketName - Nome codificado do bucket
+         */
+        function handleDeleteBucket(encodedBucketName) {
+            const bucketName = decodeURIComponent(encodedBucketName);
+            deleteBucket(bucketName);
+        }
+
+        /**
+         * Deleta um bucket via API
+         * @param {string} bucketName - Nome do bucket
+         */
+        function deleteBucket(bucketName) {
+            fetch(`/bucket/${encodeURIComponent(bucketName)}/delete`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showAlert(data.error, 'danger');
+                } else {
+                    showAlert(data.message, 'success');
+                    loadBuckets();
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showAlert('Erro ao deletar bucket!', 'danger');
+            });            
+        }
+
+        /**
+         * Lida com a deleção de um objeto (arquivo ou diretório)
+         * @param {string} encodedObjectName - Nome codificado do objeto
+         */
+      function handleDeleteObject(encodedObjectName) {
+            const objectName = decodeURIComponent(encodedObjectName);
+           deleteObject(objectName);
+        }
+
+    function isFileName(objectName) {
+        // Verifica se é no formato "nome.extensão" (sem barra no final)
+        const fileNamePattern = /^[^/]+(\.[a-zA-Z0-9]+)$/;
+        return fileNamePattern.test(objectName);
+    }
+
+       /**
+     * Deleta um objeto via API de forma síncrona
+     * @param {string} objectName - Nome do objeto
+     * @returns {Promise<void>} - Retorna uma promessa que resolve quando o objeto for deletado
+     */
+    async function deleteObject(objectName) {
+        const bucketName = currentBucket;
+
+        let objectPath = '';
+        if(currentPath.length > 0){
+            if(isFileName(objectName)){
+                objectPath =  `${currentPath.join('/')}/${objectName}`; 
+            }else{
+                objectPath =  `${currentPath.join('/')}/${objectName}/`; 
+            }              
+        }else{
+            objectPath = isFileName(objectName)? objectName:`${objectName}/`
+        }
+
+        try {
+            const response = await fetch(`/bucket/${encodeURIComponent(bucketName)}/object`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({objectKey:objectPath}) 
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                showAlert(data.error || 'Erro ao deletar objeto', 'danger');
+                throw new Error(data.error || 'Erro ao deletar objeto');
+            }
+
+            showAlert(data.message, 'success');
+            await fetchObjects(currentBucket, getCurrentPrefix());
+        } catch (err) {
+            console.error(err);
+            showAlert('Erro ao deletar objeto', 'danger');
+            throw err; // Propaga o erro para tratamento adicional
+        }
+    }
+
+
+        /**
+         * Exibe o formulário para criar um novo bucket
+         */
+        function showCreateBucketForm() {
+            navigateTo('view-bucket-create');
+        }
+
+        // /**
+        //  * Esconde o formulário de criação de bucket
+        //  */
+        // function hideCreateBucketForm() {
+        //     navigateTo('view-bucket-list');
+        // }
+
+               /**
+         * Valida o nome do bucket de acordo com as regras do Amazon S3.
+         * @param {string} bucketName - Nome do bucket a ser validado.
+         * @returns {boolean} - Retorna true se o nome for válido, caso contrário, false.
+         */
+         function isValidBucketName(bucketName) {
+            const bucketNamePattern = /^(?!xn--)(?!sthree-)(?!amzn-s3-demo-)(?!.*\.\.)(?!.*\.$)(?!.*\.-)(?!.*-\.)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
+            const ipPattern = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+
+            if (bucketName.length < 3 || bucketName.length > 63) {
+                return false;
+            }
+            if (ipPattern.test(bucketName)) {
+                return false;
+            }
+            if (!bucketNamePattern.test(bucketName)) {
+                return false;
+            }
+            if (bucketName.endsWith('-s3alias') || bucketName.endsWith('--ol-s3') || bucketName.endsWith('.mrap') || bucketName.endsWith('--x-s3')) {
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * Lida com o envio do formulário de criação de bucket
+         * @param {Event} event - Evento de envio do formulário
+         */
+        function handleCreateBucket(event) {
+            event.preventDefault();
+            const bucketName = document.getElementById('bucketNameInput').value.trim();
+            const bucketNameError = document.getElementById('bucketNameError');
+
+            // Limpa mensagens de erro anteriores            
+            bucketNameError.style.display='none';
+            bucketNameInput.classList.remove('is-invalid');
+
+            // Validação do nome do bucket
+            if (!bucketName) {
+                bucketNameError.textContent = 'O nome do bucket não pode estar vazio.';
+                bucketNameError.style.display='block';
+                bucketNameInput.classList.add('is-invalid');
+                return;
+            }
+
+            if (!isValidBucketName(bucketName)) {
+                bucketNameError.textContent = 'Nome do bucket inválido. Verifique as regras de nomenclatura do Amazon S3.';
+                bucketNameError.style.display='block';
+                bucketNameInput.classList.add('is-invalid');
+                return;
+            }             
+
+            createBucket(bucketName);
+        }
+
+
+
+        /**
+         * Cria um bucket via API
+         * @param {string} bucketName - Nome do bucket
+         */
+        function createBucket(bucketName) {
+            fetch('/create-bucket', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bucketName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    const bucketNameError = document.getElementById('bucketNameError');
+                    bucketNameError.textContent = data.error;
+                    document.getElementById('bucketNameInput').classList.add('is-invalid');
+                } else {
+                    const createBucketModal = bootstrap.Modal.getInstance(document.getElementById('createBucketModal'));
+                    createBucketModal.hide(); // Fecha o modal após sucesso
+                    document.getElementById('bucketNameInput').value = ''; // Limpa o campo de entrada
+                    document.getElementById('bucketNameError').textContent = '';
+                    showAlert(data.message, 'success');
+                    //hideCreateBucketForm();
+                    loadBuckets();
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showAlert('Erro ao criar bucket!', 'danger');
+            });
+        }
+
+        /**
+         * Lida com o envio do formulário de upload de arquivo
+         * @param {Event} event - Evento de envio do formulário
+         */
+      async  function handleUploadFile(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                showAlert('Nenhum arquivo selecionado', 'danger');
+                return;
+            }
+            uploadFile(file);
+        }
+
+       /**
+         * Faz o upload de um arquivo via API
+         * @param {File} file - Arquivo a ser enviado
+         */
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bucketName', currentBucket);
+            formData.append('prefix', getCurrentPrefix());
+
+            try {
+                const response = await fetch('/bucket/object/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    await fetchObjects(currentBucket, getCurrentPrefix());
+                    const uploadFileModal = bootstrap.Modal.getInstance(document.getElementById('uploadFileModal'));
+                    uploadFileModal.hide();
+                    document.getElementById('fileInput').value = '';
+                } else {
+                    showAlert(data.error || 'Erro ao fazer upload do arquivo', 'danger');
+                }
+            } catch (err) {
+                console.error(err);
+                showAlert('Erro ao fazer upload do arquivo', 'danger');
+            }
+        }
+
+        /**
+         * Lida com o evento de download de objeto.
+         * @param {string} encodedObjectName - Nome codificado do objeto a ser baixado.
+         */
+        function handleDownloadObject(encodedObjectName) {
+            const objectName = decodeURIComponent(encodedObjectName);
+            const bucketName = currentBucket;
+            const objectPath = currentPath.length > 0 
+                ? `${currentPath.join('/')}/${objectName}` 
+                : objectName;
+
+            // Chama a função de download
+            downloadObject(bucketName, objectPath, objectName);
+        }
+
+        /**
+         * Realiza o download de um objeto via API.
+         * @param {string} bucketName - Nome do bucket.
+         * @param {string} objectPath - Caminho completo do objeto no bucket.
+         * @param {string} objectName - Nome do objeto para salvar localmente.
+         */
+        async function downloadObject(bucketName, objectPath, objectName) {
+            try {
+                // Faz a requisição para a API para obter o objeto
+                const response = await fetch(`/bucket/${encodeURIComponent(bucketName)}/object/${encodeURIComponent(objectPath)}/download`, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    const errorMessage = await response.text();
+                    throw new Error(errorMessage || 'Erro ao realizar o download do objeto');
+                }
+
+                // Obtém o blob do arquivo
+                const blob = await response.blob();
+
+                // Cria um link temporário para o download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = objectName; // Define o nome do arquivo no download
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url); // Libera o objeto URL após o download
+
+                showAlert('Download iniciado com sucesso.', 'success');
+            } catch (err) {
+                console.error(err);
+                showAlert('Erro ao realizar o download do objeto.', 'danger');
+            }
+        }
+
+
+        /**
+         * Lida com o envio do formulário de criação de pasta
+         * @param {Event} event - Evento de envio do formulário
+         */
+        function handleCreateFolder(event) {
+            event.preventDefault();
+            const folderName = document.getElementById('folderNameInput').value.trim();
+            if (!folderName) {
+                showAlert('Nome da pasta não pode estar vazio.', 'danger');
+                return;
+            }
+
+            const prefix = getCurrentPrefix();
+
+            fetch('/bucket/folder/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bucketName: currentBucket, folderName, key: prefix })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showAlert(data.error, 'danger');
+                } else {
+                    showAlert(data.message, 'success');
+                    fetchObjects(currentBucket, prefix);
+                    const createFolderModal = bootstrap.Modal.getInstance(document.getElementById('createFolderModal'));
+                    createFolderModal.hide();
+                    document.getElementById('folderNameInput').value = '';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showAlert('Erro ao criar a pasta.', 'danger');
+            });
+        }
+
+        /**
+         * Exibe um alerta na tela
+         * @param {string} message - Mensagem do alerta
+         * @param {string} type - Tipo do alerta (success, danger, etc.)
+         */
+        function showAlert(message, type = 'success') {
+            const alertHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                </div>
+            `;
+            const container = document.getElementById('alertContainer');
+            container.innerHTML += alertHTML; // Adiciona o alerta ao invés de substituir
+
+            // Remove automaticamente após 5 segundos
+            setTimeout(() => {
+                const alertElement = container.querySelector('.alert');
+                if (alertElement) {
+                    const bsAlert = new bootstrap.Alert(alertElement);
+                    bsAlert.close();
+                }
+            }, 3000);
+        }
+
+        /**
+         * Constrói a árvore de diretórios a partir dos objetos
+         * @param {Array} contents - Lista de objetos
+         * @returns {Object} - Árvore de diretórios
+         */
+        function buildDirectoryTree(contents) {
+            const root = { name: "root", isFile: false, children: [] };
+
+            contents.forEach(item => {
+                const parts = item.name.replace(/\/$/, '').split('/').filter(part => part !== '');
+                let current = root;
+
+                parts.forEach((part, index) => {
+                    const isLast = index === parts.length - 1;
+                    const isFile = isLast ? item.isFile : false;
+
+                    let existing = current.children.find(child => child.name === part);
+
+                    if (!existing) {
+                        existing = { name: part, isFile };
+                        if (!isFile) {
+                            existing.children = [];
+                        }
+                        current.children.push(existing);
+                    }
+
+                    current = existing;
+                });
+            });
+
+            return root;
+        }
+    </script>
+</body>
+</html>
